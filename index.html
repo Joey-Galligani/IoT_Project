@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SAE-4I01 Galligani Joey</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+  <h1>ESP32 - Capteur DHT11</h1>
+  
+  <p id="temperature">Temperature : </p>
+  <p id="humidity">Humidite : </p><br><br><br>
+  <h1>Capteur Sigfox IUT Beziers</h1>
+  <p id="device">Device : B448DD</p>
+  <div>
+    <p id="temperature-data">Temperature: </p>
+    <p id="humidity-data">Humidite: </p>
+    <p id="battery-level">Niveau de batterie: </p>
+  </div>
+  <h1> Data via BLE</h1>
+  <div id="data-container-ble">
+    <p id="temperature-data-ble">Temperature: </p>
+    <p id="humidity-data-ble">Humidite: </p>
+    <p id="battery-level-ble">Niveau de batterie: </p>
+  </div>
+  <script>
+    // Fonction pour mettre à jour les données du capteur
+    function updateSensorData() {
+      $.get("/data.json", function(data) {
+        // Mettre à jour les valeurs de température et d'humidité sur la page
+        $("#temperature").text("Temperature : " + Math.round(data.temperature) + " C");
+        $("#humidity").text("Humidite : " + data.humidity + " %");
+      });
+    }
+
+    $(document).ready(function() {
+      // Fonction pour décoder le payload Sens'it
+      function decodeSensitPayload(payload, payloadble) {
+        // Conversion du payload hexadécimal en binaire
+        const binaryPayload = hexToBinary(payload);
+        const binaryPayloadble = hexToBinary(payloadble);
+
+        //console.log(hexToBinary(payload));
+        // Extraction des valeurs du niveau de batterie, de la température et de l'humidité
+        const batteryLevel = (parseInt(binaryPayload.substr(0, 5), 2) * 0.05) + 2.7;
+        const batteryLevelble = (parseInt(binaryPayloadble.substr(0, 5), 2) * 0.05) + 2.7;
+
+        //console.log(binaryPayload.substr(0, 5));
+        const humidity = parseInt(binaryPayload.substr(24, 8), 2) / 2;
+        const humidityble = parseInt(binaryPayloadble.substr(24, 8), 2) / 2;
+
+        //console.log(binaryPayload.substr(24, 8));
+        const temperature = (parseInt(binaryPayload.substr(14, 10), 2) - 200) / 8;
+        const temperatureble = (parseInt(binaryPayloadble.substr(14, 10), 2) - 200) / 8;
+
+        //console.log(binaryPayload.substr(14, 10))
+
+        // Mettre à jour les valeurs décodées sur la page
+        $("#temperature-data").text("Temperature: " + Math.round(temperature) + " C");
+        $("#humidity-data").text("Humidite: " + humidity + "%");
+        $("#battery-level").text("Niveau de batterie: " + (Math.round(batteryLevel * 10) / 10) + " Volts");
+
+        $("#temperature-data-ble").text("Temperature: " + Math.round(temperatureble) + " C");
+        $("#humidity-data-ble").text("Humidite: " + humidityble + "%");
+        $("#battery-level-ble").text("Niveau de batterie: " + (Math.round(batteryLevelble * 10) / 10) + " Volts");
+      }
+
+      // Fonction pour convertir un nombre hexadécimal en binaire
+      function hexToBinary(payload,payloadble) {
+        return parseInt(payload, 16).toString(2);
+        return parseInt(payloadble, 16).toString(2);
+
+      }
+
+      // Fonction pour récupérer les données depuis le fichier data.json
+      function fetchData() {
+        $.getJSON("dataS.json", function(data) {
+          // Sélectionnez ici l'appareil souhaité
+          var deviceId = "B448DD";
+
+          // Recherche de l'appareil dans les données
+          var deviceData = data.data.find(function(device) {
+            return device.device.id === deviceId;
+          });
+
+          // Affichage de la valeur de data
+          if (deviceData) {
+            const payload = deviceData.data;
+            decodeSensitPayload(payload);
+          } else {
+            $("#data-container").text("Device not found");
+          }
+        });
+      }
+
+
+      function fetchData2() {
+        $.getJSON("datable.json", function(data) {
+          // Sélectionnez ici l'appareil souhaité
+          var deviceId = "B448DD";
+
+          // Recherche de l'appareil dans les données
+          var deviceData = data.data.find(function(device) {
+            return device.device.id === deviceId;
+          });
+
+          // Affichage de la valeur de data
+          if (deviceData) {
+            const payloadble = deviceData.data;
+            decodeSensitPayload(payloadble);
+          } else {
+            $("#data-container-ble").text("Device not found");
+          }
+        });
+      }
+
+
+      // Appel initial de la fonction fetchData
+      fetchData();
+      fetchData2();
+
+      // Actualisation des données toutes les 2 secondes
+      setInterval(fetchData, 2000);
+      setInterval(fetchData2, 2000);
+
+
+      // Mettre à jour les données du capteur toutes les 2 secondes
+      setInterval(updateSensorData, 2000);
+    });
+  </script>
+</body>
+</html>
